@@ -974,6 +974,12 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	if ((cmd->data != NULL) || (cmd->flags & MMC_RSP_BUSY))
 		mask |= SDHCI_DATA_INHIBIT;
 
+	if(host->ops->missing_status && (cmd->opcode == MMC_SEND_STATUS)) {
+		timeout = 5000; // Really obscenely large delay to send the status, due to bug in controller
+				// which might cause the STATUS command to get stuck when a data operation is in flow
+		mask |= SDHCI_DATA_INHIBIT;
+	}
+
 	/* We shouldn't wait for data inihibit for stop commands, even
 	   though they might use busy signaling */
 	if (host->mrq->data && (cmd == host->mrq->data->stop))
@@ -2098,7 +2104,7 @@ static void sdhci_timeout_timer(unsigned long data)
 
 	if (host->mrq) {
 		pr_err("%s: Timeout waiting for hardware "
-			"interrupt.\n", mmc_hostname(host->mmc));
+				"interrupt - cmd%d.\n", mmc_hostname(host->mmc), host->last_cmdop);
 		sdhci_dumpregs(host);
 
 		if (host->data) {
@@ -3065,8 +3071,11 @@ int sdhci_add_host(struct sdhci_host *host)
 			mmc->caps |= MMC_CAP_MAX_CURRENT_200;
 	}
 
-	if(host->ops->voltage_broken)
-		ocr_avail |= MMC_VDD_29_30 | MMC_VDD_30_31;
+	if(host->ops->voltage_broken) {
+		ocr_avail |= MMC_VDD_32_33 | MMC_VDD_33_34;
+		// Cannot support UHS modes is we are stuck at 3.3V;
+		mmc->caps &= ~(MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 | MMC_CAP_UHS_SDR104 | MMC_CAP_UHS_SDR50 | MMC_CAP_UHS_DDR50);
+	}
 
 	mmc->ocr_avail = ocr_avail;
 	mmc->ocr_avail_sdio = ocr_avail;

@@ -417,6 +417,9 @@ int hcd_init(
 
 	hcd->regs = otg_dev->base;
 
+	/* Integrate TT in root hub */
+	hcd->has_tt = 1;
+
 	/* Initialize the DWC OTG HCD. */
 	dwc_otg_hcd = dwc_otg_hcd_alloc_hcd();
 	if (!dwc_otg_hcd) {
@@ -668,6 +671,9 @@ static int urb_enqueue(struct usb_hcd *hcd,
 					    urb->number_of_packets,
 					    mem_flags == GFP_ATOMIC ? 1 : 0);
 
+	if(dwc_otg_urb == NULL)
+		return -ENOMEM;
+
         urb->hcpriv = dwc_otg_urb;
         
 	dwc_otg_hcd_urb_set_pipeinfo(dwc_otg_urb, usb_pipedevice(urb->pipe),
@@ -755,10 +761,12 @@ static int urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 		dump_urb_info(urb, "urb_dequeue");
 	}
 #endif
-	dwc_otg_hcd_urb_dequeue(dwc_otg_hcd, (dwc_otg_hcd_urb_t *)urb->hcpriv);
+	if(urb->hcpriv != NULL) {
+		dwc_otg_hcd_urb_dequeue(dwc_otg_hcd, (dwc_otg_hcd_urb_t *)urb->hcpriv);
 
-	dwc_free(urb->hcpriv);
-	urb->hcpriv = NULL;
+		urb->hcpriv = NULL;
+		dwc_free(urb->hcpriv);
+	}
 
 	/* Higher layer software sets URB status. */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30))
