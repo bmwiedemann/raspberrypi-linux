@@ -257,6 +257,22 @@
 
 #include "gadget_chips.h"
 
+
+
+/*
+ * Kbuild is not very cooperative with respect to linking separately
+ * compiled library objects into one module.  So for now we won't use
+ * separate compilation ... ensuring init/exit sections work to shrink
+ * the runtime footprint, and giving us at least some parts of what
+ * a "gcc --combine ... part1.c part2.c part3.c ... " build would.
+ */
+#include "usbstring.c"
+#include "config.c"
+#include "epautoconf.c"
+
+/*-------------------------------------------------------------------------*/
+
+>>>>>>> Add dwc_otg driver
 #define DRIVER_DESC		"File-backed Storage Gadget"
 #define DRIVER_NAME		"g_file_storage"
 #define DRIVER_VERSION		"1 September 2010"
@@ -3199,6 +3215,7 @@ static void /* __init_or_exit */ fsg_unbind(struct usb_gadget *gadget)
 static int __init check_parameters(struct fsg_dev *fsg)
 {
 	int	prot;
+	int	gcnum;
 
 	/* Store the default values */
 	mod_data.transport_type = USB_PR_BULK;
@@ -3213,8 +3230,16 @@ static int __init check_parameters(struct fsg_dev *fsg)
 	if (gadget_is_at91(fsg->gadget))
 		mod_data.can_stall = 0;
 
-	if (mod_data.release == 0xffff)
-		mod_data.release = get_default_bcdDevice();
+	if (mod_data.release == 0xffff) {	// Parameter wasn't set
+		gcnum = usb_gadget_controller_number(fsg->gadget);
+		if (gcnum >= 0)
+			mod_data.release = 0x0300 + gcnum;
+		else {
+			WARNING(fsg, "controller '%s' not recognized\n",
+				fsg->gadget->name);
+			mod_data.release = 0x0399;
+		}
+	}
 
 	prot = simple_strtol(mod_data.protocol_parm, NULL, 0);
 
