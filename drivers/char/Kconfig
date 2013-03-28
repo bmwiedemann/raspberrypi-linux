@@ -589,6 +589,7 @@ config CRASHER
 	tristate "Crasher Module"
 	help
 	  Slab cache memory tester.  Only use this as a module
+source "drivers/char/broadcom/Kconfig"
 
 config MSM_SMD_PKT
 	bool "Enable device interface for some SMD packet ports"
