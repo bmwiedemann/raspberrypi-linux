@@ -1715,9 +1715,6 @@ static void sdhci_enable_sdio_irq(struct mmc_host *mmc, int enable)
 static int sdhci_do_3_3v_signal_voltage_switch(struct sdhci_host *host,
 						u16 ctrl)
 {
-	u8 pwr;
-	u16 clk, ctrl;
-	u32 present_state;
 	int ret;
 
 	/* Set 1.8V Signal Enable in the Host Control2 register to 0 */
@@ -1758,34 +1755,6 @@ static int sdhci_do_3_3v_signal_voltage_switch(struct sdhci_host *host,
 	pr_warning("%s: 3.3V regulator output did not became stable\n",
 		   mmc_hostname(host->mmc));
 
-	/* Check whether DAT[3:0] is 0000 */
-	present_state = sdhci_readl(host, SDHCI_PRESENT_STATE);
-	if (!((present_state & SDHCI_DATA_LVL_MASK) >>
-	       SDHCI_DATA_LVL_SHIFT)) {
-		/*
-		 * Enable 1.8V Signal Enable in the Host Control2
-		 * register
-		 */
-		if (host->vqmmc)
-			ret = regulator_set_voltage(host->vqmmc,
-				1800000, 1800000);
-		else
-			ret = 0;
-		/* 3.3V regulator output should be stable within 5 ms */
-		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-		if (!(ctrl & SDHCI_CTRL_VDD_180))
-			return 0;
-		else {
-			pr_info(DRIVER_NAME ": Switching to 3.3V "
-				"signalling voltage failed\n");
-			return -EIO;
-		}
-	} else if (!(ctrl & SDHCI_CTRL_VDD_180) &&
-		  (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180)) {
-		/* Stop SDCLK */
-		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-		clk &= ~SDHCI_CLOCK_CARD_EN;
-		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 	return -EIO;
 }
 
@@ -2184,7 +2153,6 @@ static const struct mmc_host_ops sdhci_ops = {
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
-	.card_event			= sdhci_card_event,
 };
 
 /*****************************************************************************\
@@ -2476,8 +2444,6 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		pr_err("%s: ADMA error\n", mmc_hostname(host->mmc));
 		sdhci_show_adma_error(host);
 		host->data->error = -EIO;
-		if (host->ops->adma_workaround)
-			host->ops->adma_workaround(host, intmask);
 	}
 
 	if (host->data->error) {
