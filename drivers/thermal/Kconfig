@@ -83,5 +83,3 @@ config THERMAL_BCM2835
 	  This will enable temperature monitoring for the Broadcom BCM2835
 	  chip. If built as a module, it will be called 'bcm2835-thermal'.
 
-endif
-
