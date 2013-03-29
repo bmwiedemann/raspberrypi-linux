@@ -140,7 +140,7 @@ static int bcm2835_thermal_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	if(!(bcm2835_data.thermal_dev = thermal_zone_device_register("bcm2835_thermal",  1, 0, NULL, &ops, NULL, 0, 0)))
+	if(!(bcm2835_data.thermal_dev = thermal_zone_device_register("bcm2835_thermal",  1, 0, NULL, &ops, 0, 0)))
 	{
 		print_debug("Unable to register the thermal device!");
 		return -EFAULT;
